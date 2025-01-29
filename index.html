@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendrier</title>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.4/index.global.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.4/index.global.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e293b;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-color: #0f172a;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        header img {
+            max-height: 100px;
+            margin-right: 20px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        #calendar {
+            width: 90%;
+            margin: 20px auto;
+            background-color: #334155;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .fc-toolbar-title {
+            color: #ffffff;
+        }
+
+        .fc-daygrid-event {
+            background-color: #3b82f6;
+            color: #ffffff;
+        }
+
+        #create-event-btn {
+            margin: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #create-event-btn:hover {
+            background-color: #2563eb;
+        }
+
+        #event-modal, #event-details-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            width: 300px;
+        }
+
+        #event-modal input, #event-modal textarea, #event-modal button, #event-details-modal button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #event-modal input, #event-modal textarea {
+            background-color: #334155;
+            color: white;
+        }
+
+        #event-modal button, #event-details-modal button {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        #event-modal button:hover, #event-details-modal button:hover {
+            background-color: #2563eb;
+        }
+
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #event-details {
+            color: #ffffff;
+        }
+
+        #event-details img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .delete-event-btn {
+            background-color: #ef4444;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .delete-event-btn:hover {
+            background-color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="logo.png" alt="Logo">
+        <h1>Calendrier des événements</h1>
+    </header>
+
+    <button id="create-event-btn">Créer un événement</button>
+
+    <div id="modal-overlay"></div>
+
+    <div id="event-modal">
+        <h2>Créer un événement</h2>
+        <input type="text" id="event-title" placeholder="Nom de l'événement">
+        <input type="color" id="event-color" value="#3b82f6">
+        <textarea id="event-description" placeholder="Description"></textarea>
+        <input type="text" id="event-location" placeholder="Lieu">
+        <input type="file" id="event-image">
+        <input type="datetime-local" id="event-date">
+        <button id="add-event-btn">Ajouter</button>
+        <button id="close-modal-btn">Annuler</button>
+    </div>
+
+    <div id="event-details-modal">
+        <h2>Détails de l'événement</h2>
+        <div id="event-details"></div>
+        <button id="close-details-btn">Fermer</button>
+        <button id="delete-event-btn" class="delete-event-btn" style="display: none;">Supprimer</button>
+    </div>
+
+    <div id="calendar"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var userRole = 'user'; // Change this to 'admin' for users who can delete events
+
+            var calendarEl = document.getElementById('calendar');
+            var createEventBtn = document.getElementById('create-event-btn');
+            var modalOverlay = document.getElementById('modal-overlay');
+            var eventModal = document.getElementById('event-modal');
+            var closeModalBtn = document.getElementById('close-modal-btn');
+            var addEventBtn = document.getElementById('add-event-btn');
+            var eventTitleInput = document.getElementById('event-title');
+            var eventDescriptionInput = document.getElementById('event-description');
+            var eventLocationInput = document.getElementById('event-location');
+            var eventImageInput = document.getElementById('event-image');
+            var eventDateInput = document.getElementById('event-date');
+
+            var eventDetailsModal = document.getElementById('event-details-modal');
+            var eventDetailsDiv = document.getElementById('event-details');
+            var closeDetailsBtn = document.getElementById('close-details-btn');
+            var deleteEventBtn = document.getElementById('delete-event-btn');
+
+            var selectedEvent;
+
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: [],
+                eventClick: function(info) {
+                    var event = info.event;
+                    selectedEvent = event;
+                    var extendedProps = event.extendedProps;
+
+                    var detailsHtml = `
+                        <p><strong>Nom:</strong> ${event.title}</p>
+                        <p><strong>Description:</strong> ${extendedProps.description || 'N/A'}</p>
+                        <p><strong>Lieu:</strong> ${extendedProps.location || 'N/A'}</p>
+                    `;
+
+                    if (extendedProps.image) {
+                        detailsHtml += `<img src="${extendedProps.image}" alt="Image de l'événement">`;
+                    }
+
+                    eventDetailsDiv.innerHTML = detailsHtml;
+                    deleteEventBtn.style.display = userRole === 'admin' ? 'block' : 'none';
+                    modalOverlay.style.display = 'block';
+                    eventDetailsModal.style.display = 'block';
+                }
+            });
+
+            calendar.render();
+
+            createEventBtn.addEventListener('click', function() {
+                modalOverlay.style.display = 'block';
+                eventModal.style.display = 'block';
+            });
+
+            closeModalBtn.addEventListener('click', function() {
+                modalOverlay.style.display = 'none';
+                eventModal.style.display = 'none';
+            });
+
+            addEventBtn.addEventListener('click', function() {
+                var title = eventTitleInput.value;
+                var description = eventDescriptionInput.value;
+                var location = eventLocationInput.value;
+                var date = eventDateInput.value;
+                var imageFile = eventImageInput.files[0];
+
+                if (title && date) {
+                    var imageUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+
+                    calendar.addEvent({
+                        title: title,
+                        start: date,
+                        extendedProps: {
+                            description: description,
+                            location: location,
+                            image: imageUrl
+                        }
+                    });
+
+                    eventTitleInput.value = '';
+                    eventDescriptionInput.value = '';
+                    eventLocationInput.value = '';
+                    eventDateInput.value = '';
+                    eventImageInput.value = '';
+
+                    modalOverlay.style.display = 'none';
+                    eventModal.style.display = 'none';
+                } else {
+                    alert('Veuillez remplir les champs obligatoires (nom et date).');
+                }
+            });
+
+            closeDetailsBtn.addEventListener('click', function() {
+                modalOverlay.style.display = 'none';
+                eventDetailsModal.style.display = 'none';
+            });
+
+            deleteEventBtn.addEventListener('click', function() {
+                if (userRole === 'admin') {
+                    selectedEvent.remove();
+                    modalOverlay.style.display = 'none';
+                    eventDetailsModal.style.display = 'none';
+                } else {
+                    alert('Vous n\'avez pas les droits pour supprimer cet événement.');
+                }
+            });
+
+            modalOverlay.addEventListener('click', function() {
+                modalOverlay.style.display = 'none';
+                eventModal.style.display = 'none';
+                eventDetailsModal.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
